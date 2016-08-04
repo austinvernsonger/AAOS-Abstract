@@ -10,6 +10,16 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
+   :caption: Call For Abstracts Maintenance - Setup
+
+   Call-Setup
+   Submission-Form
+   Submission-Summary
+   Grading-Setup
+   Assignment-Setup
+   Grading-Summary
+   Tag-Submissions
+   Schedule-Main-Menu
 
 
 
@@ -19,4 +29,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

@@ -1,2 +1,1 @@
-# AAOS-Open-Conference-System
-AAOs Abstract System
+# AAOs Abstract System - Workflow

@@ -1,0 +1,19 @@
+<?php
+
+/**
+ * @file plugins/generic/googleAnalytics/index.php
+ *
+ * Copyright (c) 2000-2012 John Willinsky
+ * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
+ *
+ * Wrapper for Google Analytics plugin.
+ *
+ * @package plugins.generic.googleAnalytics
+ *
+ */
+
+require_once('GoogleAnalyticsPlugin.inc.php');
+
+return new GoogleAnalyticsPlugin();
+
+?>

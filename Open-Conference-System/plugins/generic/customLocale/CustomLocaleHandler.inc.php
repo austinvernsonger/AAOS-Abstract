@@ -1,0 +1,225 @@
+<?php
+
+/**
+ * @file plugins/generic/customLocale/CustomLocaleHandler.inc.php
+ *
+ * Copyright (c) 2000-2012 John Willinsky
+ * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
+ *
+ * @class CustomLocaleHandler
+ * @ingroup plugins_generic_customLocale
+ *
+ * @brief This handles requests for the customLocale plugin.
+ *
+ */
+
+
+
+require_once('CustomLocalePlugin.inc.php');
+require_once('CustomLocaleAction.inc.php');
+import('classes.handler.Handler');
+
+class CustomLocaleHandler extends Handler {
+	/** plugin associated with this request **/
+	var $plugin;
+	
+	/**
+	 * Constructor
+	 */
+	function CustomLocaleHandler() {
+		parent::Handler();
+		
+		$this->addCheck(new HandlerValidatorConference($this));		
+		$this->addCheck(new HandlerValidatorRoles($this, true, null, null, array(ROLE_ID_SITE_ADMIN, ROLE_ID_MANAGER)));
+
+		$plugin =& PluginRegistry::getPlugin('generic', 'CustomLocalePlugin');
+		$this->plugin =& $plugin;				
+	} 
+
+	function index($args, &$request) {
+		$this->validate();
+		$plugin =& $this->plugin;
+		$this->setupTemplate($request, $plugin, false);
+
+		$conference = $request->getConference();
+		$rangeInfo = Handler::getRangeInfo($request, 'locales');
+
+		$templateMgr =& TemplateManager::getManager();
+		import('lib.pkp.classes.core.ArrayItemIterator');
+		$templateMgr->assign('locales', new ArrayItemIterator($conference->getSupportedLocaleNames(), $rangeInfo->getPage(), $rangeInfo->getCount()));
+		$templateMgr->assign('masterLocale', MASTER_LOCALE);
+
+		$templateMgr->display($plugin->getTemplatePath() . 'index.tpl');
+	}
+
+	function edit($args, &$request) {
+		$this->validate();
+		$plugin =& $this->plugin;
+		$this->setupTemplate($request, $plugin, true);
+
+		$locale = array_shift($args);
+		$file = array_shift($args);
+
+		if (!AppLocale::isLocaleValid($locale)) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'index');
+			$request->redirect(null, null, null, null, $path);
+		}
+		$localeFiles = CustomLocaleAction::getLocaleFiles($locale);
+
+		$templateMgr =& TemplateManager::getManager();
+
+		$localeFilesRangeInfo = $this->getRangeInfo($request, 'localeFiles');
+
+		import('lib.pkp.classes.core.ArrayItemIterator');
+		$templateMgr->assign('localeFiles', new ArrayItemIterator($localeFiles, $localeFilesRangeInfo->getPage(), $localeFilesRangeInfo->getCount()));
+
+		$templateMgr->assign('locale', $locale);
+		$templateMgr->assign('masterLocale', MASTER_LOCALE);
+
+		$templateMgr->display($plugin->getTemplatePath() . 'locale.tpl');
+	}
+
+	function editLocaleFile($args, &$request) {
+		$this->validate();
+		$plugin =& $this->plugin;
+		$this->setupTemplate($request, $plugin, true);
+
+		$locale = array_shift($args);
+		if (!AppLocale::isLocaleValid($locale)) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'index');
+			$request->redirect(null, null, null, null, $path);
+		}
+
+		$filename = urldecode(urldecode(array_shift($args)));
+		if (!CustomLocaleAction::isLocaleFile($locale, $filename)) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'edit', $locale);
+			$request->redirect(null, null, null, null, $path);
+		}
+
+		$templateMgr =& TemplateManager::getManager();
+
+		import('lib.pkp.classes.file.FileManager');
+		$fileManager = new FileManager();
+		import('classes.i18n.EditableLocaleFile');
+		$conference = $request->getConference();
+		$conferenceId = $conference->getId();
+		$publicFilesDir = Config::getVar('files', 'public_files_dir');
+		$customLocaleDir = $publicFilesDir . DIRECTORY_SEPARATOR . 'conferences' . DIRECTORY_SEPARATOR . $conferenceId . DIRECTORY_SEPARATOR . CUSTOM_LOCALE_DIR;
+		$customLocalePath = $customLocaleDir . DIRECTORY_SEPARATOR . $locale . DIRECTORY_SEPARATOR . $filename;
+		if ($fileManager->fileExists($customLocalePath)) {
+			$localeContents = EditableLocaleFile::load($customLocalePath);
+		} else {
+			$localeContents = null;
+		}
+
+		$referenceLocaleContents = EditableLocaleFile::load($filename);
+		$referenceLocaleContentsRangeInfo = $this->getRangeInfo($request, 'referenceLocaleContents');
+
+		// Handle a search, if one was executed.
+		$searchKey = $request->getUserVar('searchKey');
+		$found = false;
+		$index = 0;
+		$pageIndex = 0;
+		if (!empty($searchKey)) foreach ($referenceLocaleContents as $key => $value) {
+			if ($index % $referenceLocaleContentsRangeInfo->getCount() == 0) $pageIndex++;
+			if ($key == $searchKey) {
+				$found = true;
+				break;
+			}
+			$index++;
+		}
+
+		if ($found) {
+			$referenceLocaleContentsRangeInfo->setPage($pageIndex);
+			$templateMgr->assign('searchKey', $searchKey);
+		}
+
+		$templateMgr->assign('filename', $filename);
+		$templateMgr->assign('locale', $locale);
+		import('lib.pkp.classes.core.ArrayItemIterator');
+		$templateMgr->assign_by_ref('referenceLocaleContents', new ArrayItemIterator($referenceLocaleContents, $referenceLocaleContentsRangeInfo->getPage(), $referenceLocaleContentsRangeInfo->getCount()));
+		$templateMgr->assign('localeContents', $localeContents);
+
+		$templateMgr->display($plugin->getTemplatePath() . 'localeFile.tpl');
+	}
+
+	function saveLocaleFile($args, &$request) {
+		$this->validate();
+		$plugin =& $this->plugin;
+		$this->setupTemplate($request, $plugin, true);
+
+		$locale = array_shift($args);
+		if (!AppLocale::isLocaleValid($locale)) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'index');
+			$request->redirect(null, null, null, null, $path);
+		}
+
+		$filename = urldecode(urldecode(array_shift($args)));
+		if (!CustomLocaleAction::isLocaleFile($locale, $filename)) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'edit', $locale);
+			$request->redirect(null, null, null, null, $path);
+		}
+
+		$conference =& $request->getConference();
+		$conferenceId = $conference->getId();
+		$changes = $request->getUserVar('changes');
+		$customFilesDir = Config::getVar('files', 'public_files_dir') . DIRECTORY_SEPARATOR . 'conferences' . DIRECTORY_SEPARATOR . $conferenceId . DIRECTORY_SEPARATOR . CUSTOM_LOCALE_DIR . DIRECTORY_SEPARATOR . $locale;
+		$customFilePath = $customFilesDir . DIRECTORY_SEPARATOR . $filename;
+
+		// Create empty custom locale file if it doesn't exist
+		import('lib.pkp.classes.file.FileManager');
+		$fileManager = new FileManager();
+
+		import('classes.i18n.EditableLocaleFile');
+		if (!$fileManager->fileExists($customFilePath)) {
+			$numParentDirs = substr_count($customFilePath, DIRECTORY_SEPARATOR); 
+			$parentDirs = '';
+			for ($i=0; $i<$numParentDirs; $i++) {
+				$parentDirs .= '..' . DIRECTORY_SEPARATOR;
+			}
+
+			$newFileContents = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+			$newFileContents .= '<!DOCTYPE locale SYSTEM "' . $parentDirs . 'locale' . DIRECTORY_SEPARATOR . 'locale.dtd' . '">' . "\n";
+			$newFileContents .= '<locale name="' . $locale . '">' . "\n";
+			$newFileContents .= '</locale>';
+			$fileManager->writeFile($customFilePath, $newFileContents);
+		}
+
+		$file = new EditableLocaleFile($locale, $customFilePath);
+
+		while (!empty($changes)) {
+			$key = array_shift($changes);
+			$value = $this->correctCr(array_shift($changes));
+			if (!empty($value)) {
+				if (!$file->update($key, $value)) {
+					$file->insert($key, $value);
+				}
+			} else {
+				$file->delete($key);
+			}
+		}
+		$file->write();
+
+		$request->redirectUrl($request->getUserVar('redirectUrl'));
+	}
+
+	function correctCr($value) {
+		return str_replace("\r\n", "\n", $value);
+	}
+
+	function setupTemplate($request, &$plugin, $subclass = true) {
+		parent::setupTemplate($request);
+
+		$templateMgr =& TemplateManager::getManager();
+		$templateMgr->register_function('plugin_url', array(&$plugin, 'smartyPluginUrl'));
+		$pageHierarchy = array(array($request->url(null, null, 'user'), 'navigation.user'), array($request->url(null, null, 'manager'), 'user.role.manager'));
+		if ($subclass) {
+			$path = array($plugin->getCategory(), $plugin->getName(), 'index');
+			$pageHierarchy[] = array($request->url(null, null, null, null, $path), 'plugins.generic.customLocale.name');
+		}
+		$templateMgr->assign('pageHierarchy', $pageHierarchy);
+		$templateMgr->assign('helpTopicId', 'plugins.generic.CustomLocalePlugin');
+	}
+}
+
+?>

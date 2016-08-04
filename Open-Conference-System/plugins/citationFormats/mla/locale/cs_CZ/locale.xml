@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE locale SYSTEM "../../../../../lib/pkp/dtd/locale.dtd">
+
+<!--
+  * locale.xml
+  *
+  * Copyright (c) 2000-2012 John Willinsky
+  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
+  *
+  * Localization strings for this citation plugin in cs_CZ.   
+  * Translated by Petr Petyovsky (petyovsky 'at' feec.vutbr.cz)
+  *
+  -->
+
+<locale name="cs_CZ" full_name="Čeština">
+	<message key="plugins.citationFormats.mla.displayName">Doplněk pro citační formát MLA</message>
+	<message key="plugins.citationFormats.mla.citationFormatName">MLA</message>
+	<message key="plugins.citationFormats.mla.description">Doplněk zajišťuje podporu formátu citací MLA.</message>
+	<message key="plugins.citationFormats.mla.noPages">Poč. str.</message>
+</locale>
